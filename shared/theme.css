@@ -1,0 +1,168 @@
+:root {
+  --bg: #0c1014;
+  --bg-elev: #141a21;
+  --bg-elev-2: #1a222c;
+  --line: #243040;
+  --line-strong: #334155;
+  --text: #d7e0ea;
+  --muted: #7a8a9a;
+  --cyan: #3ee0d0;
+  --cyan-dim: #1b3a38;
+  --amber: #f0a030;
+  --amber-dim: #3a2a12;
+  --red: #e85d5d;
+  --green: #5dca8a;
+  --shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+  --mono: "Cascadia Code", "Segoe UI Mono", "SF Mono", ui-monospace, monospace;
+  --sans: "Segoe UI", system-ui, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+}
+
+button,
+input,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+.mono {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.btn {
+  border: 1px solid var(--line-strong);
+  background: var(--bg-elev-2);
+  color: var(--text);
+  border-radius: 6px;
+  padding: 8px 12px;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.btn:hover {
+  border-color: var(--cyan);
+}
+
+.btn.primary {
+  background: var(--cyan);
+  color: #06201d;
+  border-color: var(--cyan);
+  font-weight: 650;
+}
+
+.btn.primary:hover {
+  filter: brightness(1.05);
+}
+
+.btn.danger {
+  border-color: #5a3030;
+  color: #ffb4b4;
+}
+
+.btn.ghost {
+  background: transparent;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.chip {
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--muted);
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-size: 12px;
+}
+
+.chip.active {
+  color: var(--cyan);
+  border-color: var(--cyan);
+  background: var(--cyan-dim);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.field span {
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.field input,
+.field select {
+  background: #0e141a;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+
+.field input:focus,
+.field select:focus {
+  outline: 1px solid var(--cyan);
+  border-color: var(--cyan);
+}
+
+.switch {
+  position: relative;
+  width: 42px;
+  height: 24px;
+  flex: none;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.switch i {
+  position: absolute;
+  inset: 0;
+  background: #2a3340;
+  border-radius: 999px;
+  transition: 0.15s ease;
+}
+
+.switch i::after {
+  content: "";
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  left: 3px;
+  top: 3px;
+  background: #d7e0ea;
+  border-radius: 50%;
+  transition: 0.15s ease;
+}
+
+.switch input:checked + i {
+  background: var(--cyan);
+}
+
+.switch input:checked + i::after {
+  transform: translateX(18px);
+  background: #06201d;
+}
