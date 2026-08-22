@@ -165,7 +165,19 @@ h3 {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
   margin-bottom: 10px;
+}
+
+.panel-head-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.panel-head .chips {
+  margin-left: auto;
 }
 
 .table-wrap {

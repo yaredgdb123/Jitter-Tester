@@ -56,6 +56,7 @@ const els = {
   newUrl: document.getElementById("newUrl"),
   clearHistory: document.getElementById("clearHistory"),
   clearHighlight: document.getElementById("clearHighlight"),
+  incidentFilters: document.getElementById("incidentFilters"),
 };
 
 let settings = null;
@@ -63,6 +64,7 @@ let samplesMap = {};
 let incidents = [];
 let rangeId = "5m";
 let selectedTargetId = "all";
+let incidentTargetId = "all";
 let highlight = null;
 let selectedIncidentId = null;
 let applyingSettings = false;
@@ -96,6 +98,21 @@ function fillSelect(select, options, current, labelFn) {
 function visibleTargets() {
   if (selectedTargetId === "all") return settings.targets.filter((t) => t.enabled);
   return settings.targets.filter((t) => t.id === selectedTargetId);
+}
+
+function incidentFilterId() {
+  if (incidentTargetId === "all") return "all";
+  return settings.targets.some((target) => target.id === incidentTargetId) ? incidentTargetId : "all";
+}
+
+function incidentMatchesFilters(incident) {
+  const filterId = incidentFilterId();
+  if (filterId !== "all" && incident.targetId !== filterId) return false;
+  if (filterId === "all") {
+    const target = settings.targets.find((item) => item.id === incident.targetId);
+    if (target && !target.enabled) return false;
+  }
+  return true;
 }
 
 function rangeWindow() {
@@ -169,27 +186,44 @@ function renderChips() {
     els.ranges.appendChild(button);
   }
 
-  els.targetFilters.innerHTML = "";
-  const allBtn = document.createElement("button");
-  allBtn.className = `chip ${selectedTargetId === "all" ? "active" : ""}`;
-  allBtn.type = "button";
-  allBtn.textContent = "All targets";
-  allBtn.addEventListener("click", () => {
-    selectedTargetId = "all";
+  fillTargetChips(els.targetFilters, selectedTargetId, (id) => {
+    selectedTargetId = id;
     render();
   });
-  els.targetFilters.appendChild(allBtn);
+  fillTargetChips(els.incidentFilters, incidentFilterId(), (id) => {
+    incidentTargetId = id;
+    renderIncidentFilters();
+    renderIncidents();
+    renderStats();
+  });
+}
+
+function fillTargetChips(container, selectedId, onSelect) {
+  if (!container) return;
+  container.innerHTML = "";
+  const allBtn = document.createElement("button");
+  allBtn.className = `chip ${selectedId === "all" ? "active" : ""}`;
+  allBtn.type = "button";
+  allBtn.textContent = "All targets";
+  allBtn.addEventListener("click", () => onSelect("all"));
+  container.appendChild(allBtn);
   settings.targets.forEach((target, index) => {
     const button = document.createElement("button");
-    button.className = `chip ${selectedTargetId === target.id ? "active" : ""}`;
+    button.className = `chip ${selectedId === target.id ? "active" : ""}`;
     button.type = "button";
     button.textContent = target.label;
-    button.style.borderColor = selectedTargetId === target.id ? targetColors(index) : "";
-    button.addEventListener("click", () => {
-      selectedTargetId = target.id;
-      render();
-    });
-    els.targetFilters.appendChild(button);
+    if (selectedId === target.id) button.style.borderColor = targetColors(index);
+    button.addEventListener("click", () => onSelect(target.id));
+    container.appendChild(button);
+  });
+}
+
+function renderIncidentFilters() {
+  fillTargetChips(els.incidentFilters, incidentFilterId(), (id) => {
+    incidentTargetId = id;
+    renderIncidentFilters();
+    renderIncidents();
+    renderStats();
   });
 }
 
@@ -198,7 +232,7 @@ function renderStats() {
   const targets = visibleTargets();
   const combined = targets.flatMap((target) => samplesInRange(target.id, window));
   const summary = summarize(combined);
-  const openCount = incidents.filter((incident) => !incident.end).length;
+  const openCount = incidents.filter((incident) => !incident.end && incidentMatchesFilters(incident)).length;
   const elsStats = [
     ["Samples", String(summary.count)],
     ["Avg RTT", formatMs(summary.avg)],
@@ -217,9 +251,7 @@ function targetLabel(id) {
 
 function renderIncidents() {
   const window = rangeWindow();
-  const matchingTarget = incidents.filter((incident) =>
-    selectedTargetId === "all" || incident.targetId === selectedTargetId
-  );
+  const matchingTarget = incidents.filter(incidentMatchesFilters);
   const rows = matchingTarget
     .filter((incident) => {
       const end = incident.end || Date.now();
@@ -231,18 +263,42 @@ function renderIncidents() {
       return (b.start || 0) - (a.start || 0);
     });
   const hidden = matchingTarget.length - rows.length;
+  const hiddenByCheckbox = incidentFilterId() === "all"
+    ? incidents.filter((incident) => {
+        const target = settings.targets.find((item) => item.id === incident.targetId);
+        if (!target || target.enabled) return false;
+        const end = incident.end || Date.now();
+        return end >= window.start && incident.start <= window.end;
+      }).length
+    : 0;
 
   if (!rows.length) {
-    const message = hidden
-      ? `${hidden} incident${hidden === 1 ? "" : "s"} are outside this ${rangeId} range. Choose a longer range or All to see them.`
-      : "No incidents yet. Spikes, jitter jumps, and losses will show up here.";
+    let message = "No incidents yet. Spikes, jitter jumps, and losses will show up here.";
+    if (hidden) {
+      message = `${hidden} incident${hidden === 1 ? "" : "s"} are outside this ${rangeId} range. Choose a longer range or All to see them.`;
+    } else if (hiddenByCheckbox) {
+      message = `${hiddenByCheckbox} incident${hiddenByCheckbox === 1 ? "" : "s"} hidden by unchecked targets. Check a target or pick it in the filter.`;
+    } else if (incidentFilterId() !== "all") {
+      message = `No incidents for ${escapeHtml(targetLabel(incidentFilterId()))} in this range.`;
+    }
     els.incidents.innerHTML = `<tr><td class="empty" colspan="6">${message}</td></tr>`;
     return;
   }
 
-  const notice = hidden
-    ? `<tr><td class="empty" colspan="6">${hidden} older incident${hidden === 1 ? "" : "s"} hidden by the ${rangeId} range. Choose All to show everything.</td></tr>`
-    : "";
+  const notices = [];
+  if (hidden) {
+    notices.push(
+      `${hidden} older incident${hidden === 1 ? "" : "s"} hidden by the ${rangeId} range. Choose All to show everything.`
+    );
+  }
+  if (hiddenByCheckbox) {
+    notices.push(
+      `${hiddenByCheckbox} incident${hiddenByCheckbox === 1 ? "" : "s"} hidden by unchecked targets.`
+    );
+  }
+  const notice = notices
+    .map((text) => `<tr><td class="empty" colspan="6">${text}</td></tr>`)
+    .join("");
 
   els.incidents.innerHTML =
     notice +
@@ -282,7 +338,7 @@ function renderTargets() {
     const row = document.createElement("div");
     row.className = "target-row";
     row.innerHTML = `
-      <input type="checkbox" ${target.enabled ? "checked" : ""} data-act="enable" />
+      <input type="checkbox" ${target.enabled ? "checked" : ""} data-act="enable" title="Sample this target and include it in the incident table" />
       <input type="text" value="${escapeAttr(target.label)}" data-act="label" />
       <input type="url" value="${escapeAttr(target.url)}" data-act="url" />
       <button class="btn danger" type="button" data-act="remove">Remove</button>
